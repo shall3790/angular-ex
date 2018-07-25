@@ -1,0 +1,110 @@
+kind: Template
+apiVersion: v1
+metadata:
+  name: angular-template
+  annotations:
+    openshift.io/display-name: "Angular" 
+    description: >-
+        An example Angular application. For more information
+        about using this template, including OpenShift considerations, see
+        http://hlgithub.hobbylobby.corp/stmhall1/angular-ex/blob/master/README.md.
+    openshift.io/long-description: >-
+        This template defines resources needed to develop an Angular application,
+        including a build configuration, application deployment configuration.
+    tags: "quickstart, nodejs, angular" 
+    iconClass: icon-angularjs
+objects:
+  - kind: ImageStream
+    apiVersion: v1
+    metadata:
+      labels:
+        app: "${APP_NAME}"
+      name: "${APP_NAME}"
+  - kind: BuildConfig
+    apiVersion: build.openshift.io/v1
+    metadata:
+      labels:
+        app: "${APP_NAME}"
+      name: "${APP_NAME}"  
+    spec:
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: "${APP_NAME}:latest"
+      source:
+        contextDir: "${CONTEXT_DIR}"
+        git:
+          ref: "${SOURCE_REPOSITORY_REF}"
+          uri: "${SOURCE_REPOSITORY_URL}"
+        sourceSecret:
+          name: "${GIT_SECRET}"
+        type: Git
+      strategy:
+        sourceStrategy:
+          env:
+            - name: NPM_RUN
+              value: "${NPM_RUN}"
+          from:
+            kind: ImageStreamTag
+            name: 'nodejs-8-rhel7:latest'
+            namespace: openshift
+        type: Source
+      triggers:
+        - type: ImageChange
+        - type: ConfigChange  
+  - kind: Service
+    apiVersion: v1
+    metadata:
+      labels:
+        app: "${APP_NAME}"
+      name: "${APP_NAME}-svc"
+    spec:
+      ports:
+        - name: 8080-tcp
+          port: 8080
+          protocol: TCP
+          targetPort: 8080
+      selector:
+        app: "${APP_NAME}"
+        deploymentconfig: "${APP_NAME}"
+      sessionAffinity: None
+      type: ClusterIP
+    status:
+      loadBalancer: {}
+parameters:
+  - name: APP_NAME
+    displayName: Name of application 
+    description: Name of application
+    value: phoenix-ex 
+    required: true
+  - name: SOURCE_REPOSITORY_URL 
+    displayName: Source Repository URL 
+    description: The URL of the repository with your application source code 
+    value: http://hlgithub.hobbylobby.corp/stmhall1/phoenix-ex.git 
+    required: true
+  - name: SOURCE_REPOSITORY_REF 
+    displayName: Source Repository Branch 
+    description: The branch within the repository with your application source code 
+    value: master
+    required: true
+  - name: CONTEXT_DIR
+    displayName: Source directory
+    description: The directory within the repo with your application soure code
+    value: hello_phx
+  - name: MIX_ENV
+    displayName: Mix Environment
+    description: The mix environment to start the build
+    value: dev
+  - name: GIT_USER
+    description: Username for GitHub user that will be used for accessing the repo.
+    displayName: GitHub Username
+    from: 'user[A-Z0-9]{3}'
+    generate: expression
+  - name: GIT_PASSWORD
+    description: Password for the GitHub user.
+    displayName: GitHub User Password
+    from: '[a-zA-Z0-9]{16}'
+    generate: expression  
+message: "App created"
