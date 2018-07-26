@@ -20,6 +20,12 @@ objects:
       labels:
         app: "${APP_NAME}"
       name: "${APP_NAME}"
+  - kind: ImageStream
+    apiVersion: v1
+    metadata:
+      labels:
+        app: "${APP_NAME}"
+      name: "${APP_NAME}-nginx"        
   - kind: BuildConfig
     apiVersion: build.openshift.io/v1
     metadata:
@@ -54,6 +60,46 @@ objects:
       triggers:
         - type: ImageChange
         - type: ConfigChange  
+  - kind: BuildConfig
+    apiVersion: build.openshift.io/v1
+    metadata:
+      labels:
+        app: "${APP_NAME}"
+      name: "${APP_NAME}-nginx"
+    spec:
+      output:
+        to:
+          kind: ImageStreamTag
+          name: "${APP_NAME}-nginx:latest"
+      source:
+        type: Dockerfile
+        dockerfile: |-
+          FROM nginx:1.12
+          ADD dist . 
+      
+          ENV PORT 8080
+          CMD ["/usr/libexec/s2i/run"]
+        images:
+        - from: 
+            kind: ImageStreamTag
+            name: ${APP_NAME}:latest
+          paths: 
+          - sourcePath: /opt/app-root/src/dist
+            destinationDir: "."
+      strategy:
+        dockerStrategy:
+          from: 
+            kind: ImageStreamTag
+            name: nginx:1.12
+            namespace: openshift
+        type: Docker
+      triggers:
+        - type: ConfigChange
+        - imageChange:
+            from:
+              kind: ImageStreamTag
+              name: "${APP_NAME}:latest"
+          type: ImageChange        
   - kind: Service
     apiVersion: v1
     metadata:
@@ -67,22 +113,72 @@ objects:
           protocol: TCP
           targetPort: 8080
       selector:
-        app: "${APP_NAME}"
-        deploymentconfig: "${APP_NAME}"
+        app: "${APP_NAME}-nginx"
+        deploymentconfig: "${APP_NAME}-nginx"
       sessionAffinity: None
       type: ClusterIP
     status:
       loadBalancer: {}
+  - kind: DeploymentConfig
+    apiVersion: apps.openshift.io/v1
+    metadata:
+      labels:
+        app: "${APP_NAME}"
+      name: "${APP_NAME}-nginx"
+    spec:
+      replicas: 1
+      selector:
+        app: "${APP_NAME}-nginx"
+        deploymentconfig: "${APP_NAME}-nginx"
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          labels:
+            app: "${APP_NAME}-nginx"
+            deploymentconfig: "${APP_NAME}-nginx"
+        spec:
+          containers:
+            - env:
+                - name: FOO
+                  value: BAR
+              image: "${APP_NAME}-nginx:latest"
+              imagePullPolicy: Always
+              name: "${APP_NAME}-nginx"
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+      test: false      
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - "${APP_NAME}-nginx"
+            from:
+              kind: ImageStreamTag
+              name: "${APP_NAME}-nginx:latest"
+          type: ImageChange      
 parameters:
   - name: APP_NAME
     displayName: Name of application 
     description: Name of application
-    value: phoenix-ex 
+    value: angular-ex 
     required: true
   - name: SOURCE_REPOSITORY_URL 
     displayName: Source Repository URL 
     description: The URL of the repository with your application source code 
-    value: http://hlgithub.hobbylobby.corp/stmhall1/phoenix-ex.git 
+    value: http://hlgithub.hobbylobby.corp/stmhall1/angular-ex.git 
     required: true
   - name: SOURCE_REPOSITORY_REF 
     displayName: Source Repository Branch 
@@ -92,19 +188,10 @@ parameters:
   - name: CONTEXT_DIR
     displayName: Source directory
     description: The directory within the repo with your application soure code
-    value: hello_phx
-  - name: MIX_ENV
-    displayName: Mix Environment
-    description: The mix environment to start the build
-    value: dev
-  - name: GIT_USER
-    description: Username for GitHub user that will be used for accessing the repo.
-    displayName: GitHub Username
-    from: 'user[A-Z0-9]{3}'
-    generate: expression
-  - name: GIT_PASSWORD
-    description: Password for the GitHub user.
-    displayName: GitHub User Password
-    from: '[a-zA-Z0-9]{16}'
-    generate: expression  
+    value: angular-ex
+  - name: GIT_SECRET
+    description: Secret containing Git svc account credentials
+    displayName: GitHub User Secret
+    value: svc-jenkins
+    required: true
 message: "App created"
