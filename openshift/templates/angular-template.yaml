@@ -189,6 +189,11 @@ parameters:
     displayName: Source directory
     description: The directory within the repo with your application soure code
     value: angular-ex
+  - name: NPM_RUN
+    displayName: NPM run script
+    description: Name of NPM script to run
+    value: angular-ex 
+    required: true    
   - name: GIT_SECRET
     description: Secret containing Git svc account credentials
     displayName: GitHub User Secret
