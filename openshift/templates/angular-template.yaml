@@ -153,11 +153,20 @@ objects:
               image: "${APP_NAME}-nginx:latest"
               imagePullPolicy: Always
               name: "${APP_NAME}-nginx"
+              volumeMounts:
+                - mountPath: /opt/app-root/src/assets/data/
+                  name: ${APP_NAME}-config
+                  readOnly: true
           dnsPolicy: ClusterFirst
           restartPolicy: Always
           schedulerName: default-scheduler
           securityContext: {}
           terminationGracePeriodSeconds: 30
+          volumes:
+            - name: ${APP_NAME}-config
+              secret:
+                defaultMode: 420
+                secretName: "${WEBCLIENT_CONFIG}"
       test: false      
       triggers:
         - type: ConfigChange
@@ -194,6 +203,11 @@ parameters:
     description: Name of NPM script to run
     value: angular-ex 
     required: true    
+  - name: WEBCLIENT_CONFIG
+    displayName: Config for Angular client
+    description: Name of config.json for Angular client
+    value: webclient-dev-config
+    required: true       
   - name: GIT_SECRET
     description: Secret containing Git svc account credentials
     displayName: GitHub User Secret
