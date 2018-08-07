@@ -54,7 +54,7 @@ objects:
               value: "${NPM_RUN}"
           from:
             kind: ImageStreamTag
-            name: 'nodejs-8-rhel7:latest'
+            name: 'hl-s2i-nodejs:latest'
             namespace: openshift
         type: Source
       triggers:
